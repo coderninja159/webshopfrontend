@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../store/useAuthStore';
+import { useAuthStore, isTokenExpired } from '../stores/useAuthStore';
+
 import { showGlobalToast } from '../services/apiClient';
 
 interface ProtectedRouteProps {
@@ -9,11 +10,16 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, token, logout } = useAuthStore();
   const location = useLocation();
 
-  // 1. Unauthenticated redirect logic
-  if (!isAuthenticated) {
+  const isExpired = isTokenExpired(token);
+
+  // 1. Unauthenticated / Expired redirect logic
+  if (!isAuthenticated || isExpired) {
+    if (isExpired && token) {
+      logout();
+    }
     if (location.pathname.startsWith('/admin')) {
       return <Navigate to="/admin-secure-gate" replace />;
     }

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Phone, KeyRound, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useAuthStore } from '../store/useAuthStore';
+import { useAuthStore } from '../stores/useAuthStore';
+
 
 export function Register() {
   const navigate = useNavigate();

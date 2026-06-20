@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ShoppingBag, Users, TrendingUp, ClipboardList, PackageOpen } from 'lucide-react';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../stores/useAuthStore';
+import { apiClient } from '../services/apiClient';
 
 interface OrderData {
   id: string;
@@ -22,18 +23,34 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Dynamic fetch from backend endpoints
+    // Dynamic fetch from backend endpoints using secure apiClient
     Promise.all([
-      fetch('/api/admin/stats').then(res => res.ok ? res.json() : null),
-      fetch('/api/admin/orders').then(res => res.ok ? res.json() : null)
+      apiClient.get('/admin/stats').then(res => res.data),
+      apiClient.get('/admin/orders').then(res => res.data)
     ])
     .then(([statsData, ordersData]) => {
-      if (statsData) setStats(statsData);
-      if (Array.isArray(ordersData)) setOrders(ordersData);
+      if (statsData) {
+        setStats({
+          salesTotal: statsData.totalSales || 0,
+          orderCount: statsData.totalOrders || 0,
+          customerCount: statsData.totalUsers || 0,
+          productsCount: statsData.activeProducts || 0
+        });
+      }
+      if (Array.isArray(ordersData)) {
+        const mappedOrders = ordersData.map((o: any) => ({
+          id: o.id,
+          customer: o.deliveryPhone || 'Mijoz',
+          date: new Date(o.createdAt).toLocaleDateString('uz-UZ'),
+          total: o.totalAmount,
+          status: o.status
+        }));
+        setOrders(mappedOrders);
+      }
       setLoading(false);
     })
-    .catch(() => {
-      // Fallback to empty states (no fake data lies!)
+    .catch((err) => {
+      console.error("Failed to fetch admin stats/orders:", err);
       setStats({
         salesTotal: 0,
         orderCount: 0,
@@ -51,6 +68,7 @@ export function AdminDashboard() {
     { title: 'Mijozlar Bazasi', value: `${stats.customerCount} nafar`, icon: Users, color: 'text-emerald-650 bg-emerald-50 border-emerald-100' },
     { title: 'Faol Mahsulotlar', value: `${stats.productsCount} turdagi`, icon: ShoppingBag, color: 'text-amber-650 bg-amber-50 border-amber-100' }
   ];
+
 
   return (
     <div className="space-y-8">

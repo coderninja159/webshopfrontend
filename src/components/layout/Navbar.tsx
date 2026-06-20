@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, Search, ShoppingCart, User, ClipboardList, Shield } from 'lucide-react';
 import { useCartStore } from '../../stores/cartStore';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { useCategoryStore } from '../../stores/useCategoryStore';
 
 export function Navbar() {

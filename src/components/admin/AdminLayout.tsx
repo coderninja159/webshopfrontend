@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LayoutDashboard, ShoppingBag, ClipboardList, Users, LogOut, ShieldCheck } from 'lucide-react';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/useAuthStore';
 
 interface AdminLayoutProps {
   children: React.ReactNode;

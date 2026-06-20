@@ -21,6 +21,7 @@ import { AdminProducts } from './pages/AdminProducts';
 import { AddProductForm } from './components/admin/AddProductForm';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminCustomers } from './pages/AdminCustomers';
 
 // Wrap page changes inside framer-motion transitions
 function AnimatedAppRoutes() {
@@ -205,7 +206,7 @@ function AnimatedAppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit" className="w-full flex-grow flex flex-col">
-                <AdminDashboard />
+                <AdminCustomers />
               </motion.div>
             </ProtectedRoute>
           } 

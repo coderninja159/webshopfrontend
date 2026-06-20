@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, ShoppingBag, ShieldCheck, Ticket, RefreshCw, CheckCircle, ArrowRight } from 'lucide-react';
+import { Trash2, ShoppingBag, ShieldCheck, Ticket, RefreshCw, CheckCircle, ArrowRight, MapPin, Phone as PhoneIcon, CreditCard, Wallet, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '../stores/cartStore';
+import { useAuthStore } from '../stores/useAuthStore';
+import { apiClient } from '../services/apiClient';
 
 export function CartPage() {
   const navigate = useNavigate();
@@ -14,13 +16,24 @@ export function CartPage() {
     clearCart 
   } = useCartStore();
 
+  const { isAuthenticated } = useAuthStore();
+
   // Local States
   const [promoCode, setPromoCode] = useState('');
   const [discountPercent, setDiscountPercent] = useState(0);
   const [promoError, setPromoError] = useState('');
   const [promoSuccess, setPromoSuccess] = useState('');
-  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'authenticating' | 'routing' | 'success'>('cart');
+  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'checkout' | 'authenticating' | 'routing' | 'success'>('cart');
   const [createdOrderId, setCreatedOrderId] = useState('');
+
+  // Checkout Form states
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [deliveryPhone, setDeliveryPhone] = useState(
+    useAuthStore.getState().user?.emailOrPhone || ''
+  );
+  const [paymentMethod, setPaymentMethod] = useState('CARD');
+  const [checkoutError, setCheckoutError] = useState('');
+
 
   // Derived values in UZS/so'm
   const subtotal = getSubtotal();
@@ -53,25 +66,184 @@ export function CartPage() {
 
   const handleTriggerCheckout = () => {
     if (items.length === 0) return;
-    
-    // Simulate payment and checkout steps
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    setCheckoutStep('checkout');
+  };
+
+  const handlePlaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCheckoutError('');
+
+    if (!shippingAddress.trim()) {
+      setCheckoutError("Etkazib berish manzilini kiritishingiz shart");
+      return;
+    }
+    if (!deliveryPhone.trim()) {
+      setCheckoutError("Telefon raqamingizni kiritishingiz shart");
+      return;
+    }
+
     setCheckoutStep('authenticating');
     
-    setTimeout(() => {
-      setCheckoutStep('routing');
-    }, 1200);
+    try {
+      const orderPayload = {
+        shippingAddress: shippingAddress.trim(),
+        deliveryPhone: deliveryPhone.trim(),
+        paymentMethod,
+        items: items.map(item => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          selectedColor: item.selectedColor || 'Standard',
+          selectedSize: item.selectedSize || 'Standard'
+        }))
+      };
 
-    setTimeout(() => {
-      const orderId = `SW-${Math.floor(10000 + Math.random() * 90000)}`;
-      setCreatedOrderId(orderId);
-      setCheckoutStep('success');
+      const response = await apiClient.post('/orders', orderPayload);
+      
+      setCheckoutStep('routing');
       
       setTimeout(() => {
-        clearCart();
-      }, 500);
+        setCreatedOrderId(response.data.id || `SW-${Math.floor(10000 + Math.random() * 90000)}`);
+        setCheckoutStep('success');
+        
+        setTimeout(() => {
+          clearCart();
+        }, 500);
+      }, 1500);
 
-    }, 2800);
+    } catch (err: any) {
+      console.error("Failed to place order:", err);
+      const errMsg = err.response?.data?.message || err.response?.data?.error || "Buyurtmani rasmiylashtirishda xatolik yuz berdi";
+      setCheckoutError(errMsg);
+      setCheckoutStep('checkout');
+    }
   };
+
+
+  if (checkoutStep === 'checkout') {
+    return (
+      <div className="flex-grow flex items-center justify-center p-8 bg-[#f2f4f7]">
+        <motion.div
+          initial={{ scale: 0.98, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white border border-gray-150 rounded-3xl p-8 sm:p-10 max-w-xl w-full shadow-sm text-left relative overflow-hidden"
+        >
+          <div className="mb-6 flex justify-between items-center">
+            <div>
+              <h2 className="font-display font-extrabold text-2xl text-gray-900 tracking-tight">
+                Buyurtmani rasmiylashtirish
+              </h2>
+              <p className="text-xs text-gray-500 font-sans font-semibold mt-1">
+                Yetkazib berish ma'lumotlarini kiriting
+              </p>
+            </div>
+            <button
+              onClick={() => setCheckoutStep('cart')}
+              className="text-xs text-purple-600 hover:text-purple-700 font-bold uppercase cursor-pointer"
+            >
+              Savatga qaytish
+            </button>
+          </div>
+
+          {checkoutError && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-xs font-semibold text-red-650 flex items-start gap-2.5">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <span>{checkoutError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handlePlaceOrder} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">
+                Etkazib berish manzili
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                <textarea
+                  required
+                  placeholder="Masalan: Toshkent shahri, Chilonzor tumani, 9-kvartal, 12-uy, 45-xonadon"
+                  value={shippingAddress}
+                  onChange={(e) => setShippingAddress(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-sans focus:outline-none focus:border-purple-600 focus:bg-white transition-all resize-none h-24"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">
+                Aloqa telefoni
+              </label>
+              <div className="relative">
+                <PhoneIcon className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  required
+                  placeholder="+998901234567"
+                  value={deliveryPhone}
+                  onChange={(e) => setDeliveryPhone(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-sans focus:outline-none focus:border-purple-600 focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block mb-3">
+                To'lov usuli
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('CARD')}
+                  className={`flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${
+                    paymentMethod === 'CARD'
+                      ? 'border-purple-600 bg-purple-50/50 text-purple-600 font-bold'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-600 font-semibold'
+                  }`}
+                >
+                  <CreditCard size={18} />
+                  <span className="text-sm">Karta orqali</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('CASH')}
+                  className={`flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${
+                    paymentMethod === 'CASH'
+                      ? 'border-purple-600 bg-purple-50/50 text-purple-600 font-bold'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-600 font-semibold'
+                  }`}
+                >
+                  <Wallet size={18} />
+                  <span className="text-sm">Naqd pul</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Order summary info */}
+            <div className="bg-gray-50 border border-gray-150 rounded-2xl p-4 text-xs font-semibold text-gray-500 space-y-2">
+              <div className="flex justify-between">
+                <span>Mahsulotlar soni:</span>
+                <span className="text-gray-900">{items.reduce((sum, item) => sum + item.quantity, 0)} dona</span>
+              </div>
+              <div className="flex justify-between border-t border-gray-200 pt-2 font-bold text-sm">
+                <span className="text-gray-900">Jami to'lov:</span>
+                <span className="text-purple-600">{total.toLocaleString('uz-UZ')} so'm</span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-4 rounded-2xl bg-purple-600 text-white font-display font-semibold hover:bg-purple-700 transition-colors shadow-sm cursor-pointer text-center"
+            >
+              Buyurtma berish
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (checkoutStep === 'authenticating' || checkoutStep === 'routing') {
     return (
@@ -147,7 +319,7 @@ export function CartPage() {
             </div>
             <div className="flex justify-between font-semibold">
               <span>ETKAZIB BERISH MANZILI:</span>
-              <span className="text-gray-950 font-bold">Toshkent sh., Chilonzor d.</span>
+              <span className="text-gray-950 font-bold truncate max-w-[180px]">{shippingAddress}</span>
             </div>
           </div>
 
@@ -171,6 +343,7 @@ export function CartPage() {
       </div>
     );
   }
+
 
   return (
     <motion.div

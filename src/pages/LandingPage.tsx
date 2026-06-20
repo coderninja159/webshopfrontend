@@ -13,7 +13,7 @@ import {
   Compass,
   Navigation
 } from 'lucide-react';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../stores/useAuthStore';
 
 export function LandingPage() {
   const navigate = useNavigate();

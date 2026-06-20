@@ -7,7 +7,7 @@ import { ArrowRight, Zap, Sparkles, Compass } from 'lucide-react';
 import { Hero3D } from '../components/3d/Hero3D';
 import { Button } from '../components/ui/Button';
 import { ProductCard } from '../components/ui/ProductCard';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../stores/useAuthStore';
 import { useProductStore } from '../stores/useProductStore';
 import { useCategoryStore } from '../stores/useCategoryStore';
 

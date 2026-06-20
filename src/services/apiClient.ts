@@ -64,7 +64,7 @@ export const showGlobalToast = (message: string, type: 'error' | 'success' | 'wa
 
 // Create a robust Axios client instance with baseline config
 export const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 15000, // 15 seconds wait limit before aborting
   headers: {
     'Content-Type': 'application/json',

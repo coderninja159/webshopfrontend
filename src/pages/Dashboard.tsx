@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Heart, Navigation, Box, RefreshCw, ShoppingCart, Power } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { INITIAL_USER_PROFILE } from '../utils/dummyData';
@@ -6,21 +7,83 @@ import type { Order } from '../types';
 
 import { useCartStore } from '../stores/cartStore';
 import { useProductStore } from '../stores/useProductStore';
+import { useAuthStore } from '../stores/useAuthStore';
+import { apiClient } from '../services/apiClient';
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const addItem = useCartStore((state) => state.addItem);
-  const [profile, setProfile] = useState(INITIAL_USER_PROFILE);
+  const { user, logout } = useAuthStore();
+
+  const [profile, setProfile] = useState({
+    ...INITIAL_USER_PROFILE,
+    name: user?.full_name || 'Tizim Mijozi',
+    email: user?.emailOrPhone || '+998900000000',
+  });
+
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
   const [activeTab, setActiveTab] = useState<'orders' | 'wishlist'>('orders');
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [dronePingState, setDronePingState] = useState<string>('calibrating');
 
   const { products, fetchProducts } = useProductStore();
 
+  const mapBackendStatusToFrontend = (status: string): 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled' => {
+    switch (status) {
+      case 'PENDING':
+      case 'PAID':
+        return 'Processing';
+      case 'SHIPPED':
+        return 'Shipped';
+      case 'DELIVERED':
+        return 'Delivered';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return 'Processing';
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+
+    const fetchOrders = async () => {
+      try {
+        const response = await apiClient.get('/orders/my');
+        const mappedOrders = response.data.map((o: any) => ({
+          id: o.id,
+          date: new Date(o.createdAt).toLocaleDateString('uz-UZ'),
+          status: mapBackendStatusToFrontend(o.status),
+          total: o.totalAmount,
+          items: o.items.map((item: any) => ({
+            product: {
+              id: item.productId,
+              name: item.productName,
+              price: item.priceAtPurchase,
+              image: item.productImage || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff',
+              description: '',
+              category: '',
+              rating: { rate: 5, count: 1 },
+              specs: {},
+              inventory: 99
+            },
+            quantity: item.quantity
+          }))
+        }));
+        setOrders(mappedOrders);
+      } catch (err) {
+        console.error("Failed to fetch user orders:", err);
+      } finally {
+        setLoadingOrders(false);
+      }
+    };
+
+    fetchOrders();
   }, [fetchProducts]);
 
   const wishlistProducts = products.filter((p) => profile.wishlist.includes(p.id));
+
 
   const handleRemoveWishlist = (productId: string) => {
     setProfile({
@@ -79,15 +142,29 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="shrink-0 flex items-center space-x-2 bg-purple-50 border border-purple-100 rounded-full px-4 py-2 pointer-events-none select-none">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-450 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-600"></span>
-            </span>
-            <span className="text-[10px] tracking-wider text-purple-700 font-bold">
-              TIZIMDA
-            </span>
+          <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+            <div className="flex items-center space-x-2 bg-purple-50 border border-purple-100 rounded-full px-4 py-2 pointer-events-none select-none">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-600"></span>
+              </span>
+              <span className="text-[10px] tracking-wider text-purple-700 font-bold">
+                TIZIMDA
+              </span>
+            </div>
+            
+            <button
+              onClick={() => {
+                logout();
+                navigate('/store');
+              }}
+              className="flex items-center space-x-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-650 rounded-full px-4 py-2 text-[10px] font-bold tracking-wider uppercase transition-colors cursor-pointer"
+            >
+              <Power size={12} className="stroke-[2.5]" />
+              <span>Chiqish</span>
+            </button>
           </div>
+
 
         </div>
 
@@ -99,7 +176,7 @@ export function Dashboard() {
               activeTab === 'orders' ? 'text-purple-600 font-extrabold' : 'text-gray-400 hover:text-purple-600'
             }`}
           >
-            Buyurtmalarim ({profile.orders.length})
+            Buyurtmalarim ({orders.length})
             {activeTab === 'orders' && (
               <motion.div layoutId="dashboardActiveTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
             )}
@@ -125,7 +202,12 @@ export function Dashboard() {
             
             {activeTab === 'orders' ? (
               /* Orders listing */
-              profile.orders.length === 0 ? (
+              loadingOrders ? (
+                <div className="bg-white rounded-3xl p-16 text-center border border-gray-150 shadow-sm flex flex-col items-center justify-center">
+                  <RefreshCw size={24} className="text-purple-600 animate-spin mb-3" />
+                  <span className="text-xs text-gray-500 font-semibold">Yuklanmoqda...</span>
+                </div>
+              ) : orders.length === 0 ? (
                 <div className="bg-white rounded-3xl p-16 text-center border border-gray-150 shadow-sm">
                   <h3 className="font-display font-extrabold text-lg text-gray-950">Faol buyurtmalar mavjud emas</h3>
                   <p className="text-xs text-gray-400 font-semibold max-w-xs mx-auto mt-2 leading-relaxed">
@@ -134,7 +216,7 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {profile.orders.map((order) => {
+                  {orders.map((order) => {
                     const statusText = {
                       Processing: 'Kutilmoqda',
                       Shipped: 'Yo\'lda',
@@ -193,7 +275,7 @@ export function Dashboard() {
                             <span className="font-extrabold text-purple-700">{order.total.toLocaleString('uz-UZ')} so'm</span>
                           </div>
                           
-                          {order.trackingNumber && (
+                          {order.status !== 'Cancelled' && (
                             <button
                               onClick={() => handleTrackDrone(order)}
                               className="px-3.5 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-[10px] font-bold text-purple-700 hover:bg-purple-600 hover:text-white transition-all cursor-pointer flex items-center space-x-1.5"
@@ -209,6 +291,7 @@ export function Dashboard() {
                   })}
                 </div>
               )
+
             ) : (
               /* Wishlist panel */
               wishlistProducts.length === 0 ? (
